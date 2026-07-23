@@ -18,7 +18,6 @@ fn main() {
 
         let input = input.trim();
 
-        // تجاهل السطر الفارغ
         if input.is_empty() {
             continue;
         }
@@ -43,11 +42,17 @@ fn main() {
             }
 
             "echo" => {
-                println!("echo command");
+                println!("{}", args.join(" "));
+
             }
 
             "cd" => {
-                println!("cd command");
+                if args.is_empty() {
+                    eprintln!("cd: missing operand");
+                } else if let Err(err) = std::env::set_current_dir(args[0]) {
+                    eprintln!("cd: {}", err);
+                }
+
             }
 
             "ls" => {
