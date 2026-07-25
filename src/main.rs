@@ -1,6 +1,6 @@
 use std::io::{self, Write};
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
-
+// mod commands;
+// use commands::ls::ls;
 fn main() {
     let stdin = io::stdin();
 
@@ -63,6 +63,7 @@ fn main() {
             "ls" => {
                 let show_hidden = args.contains(&"-a");
                 let classify = args.contains(&"-F");
+
                 match std::fs::read_dir(".") {
                     Ok(entries) => {
                         for entry in entries {
@@ -88,6 +89,7 @@ fn main() {
                                         }
                                     }
                                 }
+
                                 Err(err) => {
                                     eprintln!("ls: {}", err);
                                 }
@@ -97,6 +99,21 @@ fn main() {
 
                     Err(err) => {
                         eprintln!("ls: {}", err);
+                    }
+                
+                }
+            }
+            "cat" => {
+                if args.is_empty() {
+                    eprintln!("cat: missing operand");
+                } else {
+                    match std::fs::read_to_string(args[0]) {
+                        Ok(content) => {
+                            print!("{}", content);
+                        }
+                        Err(err) => {
+                            eprintln!("cat: {}", err);
+                        }
                     }
                 }
             }
