@@ -1,4 +1,5 @@
 use std::io::{self, Write};
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
 fn main() {
     let stdin = io::stdin();
@@ -61,7 +62,7 @@ fn main() {
 
             "ls" => {
                 let show_hidden = args.contains(&"-a");
-
+                let classify = args.contains(&"-F");
                 match std::fs::read_dir(".") {
                     Ok(entries) => {
                         for entry in entries {
@@ -74,9 +75,19 @@ fn main() {
                                         continue;
                                     }
 
-                                    println!("{}", name);
+                                    match entry.file_type() {
+                                        Ok(file_type) => {
+                                            if classify && file_type.is_dir() {
+                                                println!("{}/", name);
+                                            } else {
+                                                println!("{}", name);
+                                            }
+                                        }
+                                        Err(err) => {
+                                            eprintln!("ls: {}", err);
+                                        }
+                                    }
                                 }
-
                                 Err(err) => {
                                     eprintln!("ls: {}", err);
                                 }
