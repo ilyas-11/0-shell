@@ -1,92 +1,95 @@
-// use std::fs;
+use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
+fn permissions_to_string(mode: u32) -> String {
+    let mut perms = String::new();
 
-// use std::os::unix::fs::PermissionsExt;
+    let flags = [
+        (0o400, 'r'),
+        (0o200, 'w'),
+        (0o100, 'x'),
+        (0o040, 'r'),
+        (0o020, 'w'),
+        (0o010, 'x'),
+        (0o004, 'r'),
+        (0o002, 'w'),
+        (0o001, 'x'),
+    ];
 
-// fn permissions_to_string(mode: u32) -> String {
-//     let mut perms = String::new();
+    for (flag, ch) in flags {
+        if mode & flag != 0 {
+            perms.push(ch);
+        } else {
+            perms.push('-');
+        }
+    }
 
-//     let flags = [
-//         (0o400, 'r'),
-//         (0o200, 'w'),
-//         (0o100, 'x'),
-//         (0o040, 'r'),
-//         (0o020, 'w'),
-//         (0o010, 'x'),
-//         (0o004, 'r'),
-//         (0o002, 'w'),
-//         (0o001, 'x'),
-//     ];
+    perms
+}
 
-//     for (flag, ch) in flags {
-//         if mode & flag != 0 {
-//             perms.push(ch);
-//         } else {
-//             perms.push('-');
-//         }
-//     }
+pub fn ls(args: &[&str]) {
+    let show_hidden = args.contains(&"-a");
+    let long_format = args.contains(&"-l");
+    let classify = args.contains(&"-F");
 
-//     perms
-// }
+    let entries = match fs::read_dir(".") {
+        Ok(entries) => entries,
+        Err(err) => {
+            eprintln!("ls: {}", err);
+            return;
+        }
+    };
 
-// pub fn ls(args: &[&str]) {
-//     let show_hidden = args.contains(&"-a");
-//     let long_format = args.contains(&"-l");
-//     let classify = args.contains(&"-F");
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(err) => {
+                eprintln!("ls: {}", err);
+                continue;
+            }
+        };
 
-//     let entries = match fs::read_dir(".") {
-//         Ok(entries) => entries,
-//         Err(err) => {
-//             eprintln!("ls: {}", err);
-//             return;
-//         }
-//     };
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
 
-//     for entry in entries {
-//         let entry = match entry {
-//             Ok(e) => e,
-//             Err(err) => {
-//                 eprintln!("ls: {}", err);
-//                 continue;
-//             }
-//         };
+        // إخفاء الملفات التي تبدأ بـ '.'
+        if !show_hidden && name.starts_with('.') {
+            continue;
+        }
 
-//         let name = entry.file_name();
-//         let name = name.to_string_lossy();
+        let metadata = match entry.metadata() {
+            Ok(m) => m,
+            Err(err) => {
+                eprintln!("ls: {}", err);
+                continue;
+            }
+        };
 
-//         // إخفاء الملفات التي تبدأ بـ '.'
-//         if !show_hidden && name.starts_with('.') {
-//             continue;
-//         }
+        let mut display_name = name.to_string();
 
-//         let metadata = match entry.metadata() {
-//             Ok(m) => m,
-//             Err(err) => {
-//                 eprintln!("ls: {}", err);
-//                 continue;
-//             }
-//         };
+        if classify && metadata.is_dir() {
+            display_name.push('/');
+        }
 
-//         let mut display_name = name.to_string();
+        if long_format {
+            let file_type = if metadata.is_dir() { 'd' } else { '-' };
+            
+            #[cfg(unix)]
+            let permissions = permissions_to_string(metadata.permissions().mode());
 
-//         if classify && metadata.is_dir() {
-//             display_name.push('/');
-//         }
+            #[cfg(not(unix))]
+            let permissions = "---------".to_string();
 
-//         if long_format {
-//             let file_type = if metadata.is_dir() { 'd' } else { '-' };
-
-//             let permissions =
-//                 permissions_to_string(metadata.permissions().mode());
-
-//             println!(
-//                 "{}{} {:>10} {}",
-//                 file_type,
-//                 permissions,
-//                 metadata.len(),
-//                 display_name
-//             );
-//         } else {
-//             println!("{}", display_name);
-//         }
-//     }
-// }
+            println!(
+                "{}{} {:>10} {}",
+                file_type,
+                permissions,
+                metadata.len(),
+                display_name
+            );
+        } else {
+            println!("{}", display_name);
+        }
+    }
+}
