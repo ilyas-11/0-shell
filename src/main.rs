@@ -26,9 +26,6 @@ fn main() {
 
         let command = parts[0];
         let args = &parts[1..];
-
-        // println!("Command: {}", command);
-        // println!("Arguments: {:?}", args);
         match command {
             "exit" => {
                 break;
@@ -54,9 +51,43 @@ fn main() {
                 }
 
             }
+            "mkdir" => {
+               if args.is_empty() {
+                    eprintln!("mkdir: missing operand");
+                } else if let Err(err) = std::fs::create_dir(args[0]) {
+                    eprintln!("mkdir: {}", err);
+                }
+            }
 
             "ls" => {
-                println!("ls command");
+                let show_hidden = args.contains(&"-a");
+
+                match std::fs::read_dir(".") {
+                    Ok(entries) => {
+                        for entry in entries {
+                            match entry {
+                                Ok(entry) => {
+                                    let name = entry.file_name();
+                                    let name = name.to_string_lossy();
+
+                                    if !show_hidden && name.starts_with('.') {
+                                        continue;
+                                    }
+
+                                    println!("{}", name);
+                                }
+
+                                Err(err) => {
+                                    eprintln!("ls: {}", err);
+                                }
+                            }
+                        }
+                    }
+
+                    Err(err) => {
+                        eprintln!("ls: {}", err);
+                    }
+                }
             }
 
             _ => {
