@@ -1,8 +1,13 @@
 pub fn cd(args: &[&str]) {
-    if args.is_empty() {
-                    eprintln!("cd: missing operand");
-                } else if let Err(err) = std::env::set_current_dir(args[0]) {
-                    eprintln!("cd: {}", err);
-                }
+   let target = if args.is_empty() {
+        std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_else(|_| "/".to_string())
+    } else {
+        args[0].to_string().clone()
+    };
+    if let Err(err) = std::env::set_current_dir(&target) {
+        eprintln!("cd: {}", err);
+    }
 
 }

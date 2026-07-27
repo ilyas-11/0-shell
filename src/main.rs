@@ -29,8 +29,9 @@ fn main() {
         let command = parts[0];
         let args = &parts[1..];
         match command {
-            "pwd" => commands::pwd::pwd(),
+            "exit" => break,
             "ls" => commands::ls::ls(args),
+            "pwd" => commands::pwd::pwd(),
             "cat" => commands::cat::cat(args),
             "cp" => commands::cp::cp(args),
             "mv" => commands::mv::mv(args),
@@ -38,7 +39,6 @@ fn main() {
             "mkdir" => commands::mkdir::mkdir(args),
             "echo" => commands::echo::echo(args),
             "cd" => commands::cd::cd(args),
-            "exit" => break,
             _ => {
                 println!("Command '{}' not found", command);
             }
