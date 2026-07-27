@@ -28,7 +28,7 @@ fn permissions_to_string(mode: u32) -> String {
     perms
 }
 
-pub fn ls(args: &[&str]) {
+pub fn  ls(args: &[&str]) {
     let show_hidden = args.contains(&"-a");
     let long_format = args.contains(&"-l");
     let classify = args.contains(&"-F");
