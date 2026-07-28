@@ -9,10 +9,9 @@ pub fn parse(input: &str) -> Vec<String> {
                 in_quotes = !in_quotes;
             }
 
-            ' ' if !in_quotes => {
+           ' ' | '\t' if !in_quotes => {
                 if !current.is_empty() {
-                    args.push(current.clone());
-                    current.clear();
+                    args.push(std::mem::take(&mut current));
                 }
             }
 
