@@ -1,15 +1,31 @@
-pub fn parse(input: &str) -> Vec<String> {
+#[derive(Clone, Copy, PartialEq)]
+enum Mode{
+    Normal,
+    Single,
+    Double,
+}
+pub fn parse(input: &str) -> Result<Vec<String>,String> {
     let mut args = Vec::new();
     let mut current = String::new();
-    let mut in_quotes = false;
+    let mut mode = Mode::Normal;
 
     for ch in input.chars() {
         match ch {
-            '"' => {
-                in_quotes = !in_quotes;
+            '"' if mode ==Mode::Normal||mode == Mode::Double=> {
+                if mode ==Mode::Normal{
+                    mode = Mode::Double;
+                }else if mode == Mode::Double{
+                    mode =Mode::Normal
+                }
             }
-
-           ' ' | '\t' if !in_quotes => {
+            '\'' if mode ==Mode::Normal||mode == Mode::Single=> {
+                if mode ==Mode::Normal{
+                    mode = Mode::Single;
+                }else if mode == Mode::Single{
+                    mode =Mode::Normal
+                }
+            }
+           ' ' | '\t' if mode ==Mode::Normal => {
                 if !current.is_empty() {
                     args.push(std::mem::take(&mut current));
                 }
@@ -22,6 +38,8 @@ pub fn parse(input: &str) -> Vec<String> {
     if !current.is_empty() {
         args.push(current);
     }
-
-    args
+    if mode!= Mode::Normal {
+        return Err("dquote> ".to_string());
+    }
+    Ok(args)
 }

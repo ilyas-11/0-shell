@@ -23,7 +23,14 @@ fn main() {
             continue;
         }
 
-        let parts: Vec<String> = helpers::parser::parse(input);
+        let parts=match helpers::parser::parse(input) {
+            Ok(args) => args,
+            Err(err) => {
+                eprintln!("shell: {}", err);
+                continue
+            }
+        };
+        println!("{:?}",parts);
         let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
 
         let command = parts[0];
