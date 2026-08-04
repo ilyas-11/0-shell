@@ -1,14 +1,24 @@
+use std::io::{self,BufRead};
 pub fn cat (args: &[&str]){
     if args.is_empty() {
-                    eprintln!("cat: missing operand");
-                } else {
-                    match std::fs::read_to_string(args[0]) {
-                        Ok(content) => {
-                            print!("{}", content);
-                        }
-                        Err(err) => {
-                            eprintln!("cat: {}", err);
-                        }
-                    }
+        let stdin = io::stdin();
+        for line in stdin.lock().lines() {
+            match line {
+                Ok(line) => println!("{}", line),
+                Err(err) => {
+                    eprintln!("cat: {}", err);
+                    break;
                 }
+            }
+        }
+        return;
+    }
+    for file in args{
+
+        match std::fs::read_to_string(file) {
+            Ok(content) => print!("{}", content),
+            Err(err) => eprintln!("cat: {} : {}",file, err),
+        }
+    }
+    
 }
