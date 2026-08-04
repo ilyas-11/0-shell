@@ -67,7 +67,7 @@ fn main() {
         match command {
             "exit" => break,
             "ls" => commands::ls::ls(args),
-            "pwd" => commands::pwd::pwd(),
+            "pwd" => commands::pwd::pwd(args),
             "cat" => commands::cat::cat(args),
             "cp" => commands::cp::cp(args),
             "mv" => commands::mv::mv(args),
@@ -75,7 +75,7 @@ fn main() {
             "mkdir" => commands::mkdir::mkdir(args),
             "echo" => commands::echo::echo(args),
             "cd" => commands::cd::cd(args),
-            _ => println!("Command '{}' not found", command),
+            _ => println!("Command '{}' not found", command)
         }
     }
 }
