@@ -1,10 +1,17 @@
+
+#[derive(Debug)]
+pub enum ParseError {
+    UnclosedSingleQuote,
+    UnclosedDoubleQuote,
+}
+
 #[derive(Clone, Copy, PartialEq)]
 enum Mode{
     Normal,
     Single,
     Double,
 }
-pub fn parse(input: &str) -> Result<Vec<String>,String> {
+pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
     let mut args = Vec::new();
     let mut current = String::new();
     let mut mode = Mode::Normal;
@@ -38,8 +45,20 @@ pub fn parse(input: &str) -> Result<Vec<String>,String> {
     if !current.is_empty() {
         args.push(current);
     }
-    if mode!= Mode::Normal {
-        return Err("dquote> ".to_string());
+    // if mode!= Mode::Normal {
+    //         match mode {
+    //             Mode::Double => return Err(ParseError::UnclosedDoubleQuote),
+    //             Mode::Single => return Err(ParseError::UnclosedSingleQuote),
+    //             Mode::Normal => return Err("dquote> ".to_string())
+    //         }
+    // }
+    if mode == Mode::Double {
+        return Err(ParseError::UnclosedDoubleQuote);
     }
+
+    if mode == Mode::Single {
+        return Err(ParseError::UnclosedSingleQuote);
+    }
+
     Ok(args)
 }

@@ -1,6 +1,9 @@
 use std::io::{self, Write};
+
 mod commands;
 mod helpers;
+
+use helpers::parser::ParseError;
 fn main() {
     let stdin = io::stdin();
 
@@ -17,24 +20,50 @@ fn main() {
             break;
         }
 
-        let input = input.trim();
-
-        if input.is_empty() {
+        if input.trim().is_empty() {
             continue;
         }
 
-        let parts=match helpers::parser::parse(input) {
-            Ok(args) => args,
-            Err(err) => {
-                eprintln!("shell: {}", err);
-                continue
+        let parts = loop {
+            match helpers::parser::parse(input.trim_end()) {
+                Ok(args) => break args,
+
+                Err(ParseError::UnclosedDoubleQuote) => {
+                    print!("dquote> ");
+                    io::stdout().flush().unwrap();
+
+                    let mut line = String::new();
+                    stdin.read_line(&mut line).unwrap();
+
+                    input.push_str(&line);
+                }
+
+                Err(ParseError::UnclosedSingleQuote) => {
+                    print!("quote> ");
+                    io::stdout().flush().unwrap();
+
+                    let mut line = String::new();
+                    stdin.read_line(&mut line).unwrap();
+
+                    input.push_str(&line);
+                }
+
+                // Err(err) => {
+                //     eprintln!("{:?}", err);
+                //     continue;
+                // }
             }
         };
-        println!("{:?}",parts);
+
+        if parts.is_empty() {
+            continue;
+        }
+
         let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
 
         let command = parts[0];
         let args = &parts[1..];
+
         match command {
             "exit" => break,
             "ls" => commands::ls::ls(args),
@@ -46,9 +75,7 @@ fn main() {
             "mkdir" => commands::mkdir::mkdir(args),
             "echo" => commands::echo::echo(args),
             "cd" => commands::cd::cd(args),
-            _ => {
-                println!("Command '{}' not found", command);
-            }
+            _ => println!("Command '{}' not found", command),
         }
     }
 }
