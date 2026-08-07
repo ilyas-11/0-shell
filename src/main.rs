@@ -63,6 +63,7 @@ fn main() {
 
         let command = parts[0];
         let args = &parts[1..];
+        println!("command: {}, args: {:?}", command, args);
 
         match command {
             "exit" => break,
