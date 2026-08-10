@@ -66,7 +66,7 @@ fn main() {
         println!("command: {}, args: {:?}", command, args);
 
         match command {
-            "exit" => break,
+            "exit" => commands::exit::exit(&args[1..]),
             "ls" => commands::ls::ls(args),
             "pwd" => commands::pwd::pwd(args),
             "cat" => commands::cat::cat(args),

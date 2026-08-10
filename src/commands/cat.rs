@@ -22,3 +22,9 @@ pub fn cat (args: &[&str]){
     }
     
 }
+
+//test 
+
+//cat a.txt b.txt c.txt
+//cat d.txt
+
