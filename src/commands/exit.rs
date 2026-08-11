@@ -1,15 +1,10 @@
 use std::process;
 
 pub fn exit(args: &[&str]) {
-    if args.len() > 1 {
-        eprintln!("exit: too many arguments");
-        return;
-    }
-
+    println!("Exiting the shell...");
     if args.is_empty() {
         process::exit(0);
     }
-
     match args[0].parse::<i32>() {
         Ok(status) => {
             process::exit(status);

@@ -19,4 +19,4 @@ pub fn cd(args: &[&str]) {
 
 // cd /Desktop
 // cd hi hi
-// 
+//  cd -- cd cd ~ cd $Home

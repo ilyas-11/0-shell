@@ -16,8 +16,36 @@ pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
     let mut current = String::new();
     let mut mode = Mode::Normal;
 
-    for ch in input.chars() {
+    let mut chars = input.chars();
+    while let Some(ch) = chars.next() {
+        //println!("{} ", ch);
         match ch {
+            '\\' if mode == Mode::Normal => {
+                if let Some(next) = chars.next() {
+                    current.push(next);
+                }
+            }
+            '\\' if mode == Mode::Double => {
+                if let Some(&next) = chars.clone().next().as_ref() {
+                match next {
+                    '"' | '\\' | '$' | '`' => {
+                        current.push(next);
+                        chars.next();
+                    }
+
+                    '\n' => {
+                        chars.next();
+                    }
+
+                    _ => {
+                        current.push('\\');
+                    }
+                }
+            } else {
+                current.push('\\');
+            }
+            // #
+            }
             '"' if mode ==Mode::Normal||mode == Mode::Double=> {
                 if mode ==Mode::Normal{
                     mode = Mode::Double;
@@ -45,13 +73,6 @@ pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
     if !current.is_empty() {
         args.push(current);
     }
-    // if mode!= Mode::Normal {
-    //         match mode {
-    //             Mode::Double => return Err(ParseError::UnclosedDoubleQuote),
-    //             Mode::Single => return Err(ParseError::UnclosedSingleQuote),
-    //             Mode::Normal => return Err("dquote> ".to_string())
-    //         }
-    // }
     if mode == Mode::Double {
         return Err(ParseError::UnclosedDoubleQuote);
     }
@@ -62,3 +83,9 @@ pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
 
     Ok(args)
 }
+
+
+//test 
+
+// echo "\"" => "
+//echo '\''  => '

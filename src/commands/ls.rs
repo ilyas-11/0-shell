@@ -97,3 +97,23 @@ pub fn ls(args: &[&str]) {
         }
     }
 }
+
+
+// ls -l Desktop -- Documents -a
+
+// ls -l Desktop -- -a Documents 
+// ls: cannot access '-a': No such file or directory
+// Desktop:
+// total 32
+// drwxr-xr-x  9 iabid 10011 4096 Aug 10 12:40  0-shell
+// drwxr-xr-x  7 iabid 10011 4096 Jul  2 16:06  Checkpoint-01
+// drwxr-xr-x 11 iabid 10011 4096 Jul 18 14:32  Checkpoint-04-rust
+// drwxr-xr-x 12 iabid 10011 4096 Jun 25 10:59 'New Folder 1'
+// drwxr-xr-x 12 iabid 10011 4096 Jun 25 10:59 'New Folder 2'
+// drwxr-xr-x 98 iabid 10011 4096 Jul 18 16:36  piscine-rust
+// drwxr-xr-x  3 iabid 10011 4096 Jun 25 12:13  pool
+// drwxr-xr-x  5 iabid 10011 4096 Aug 10 12:55  tt
+
+// Documents:
+// total 0
+// iabid@z1r9s7:~$ 
