@@ -1,28 +1,69 @@
-use std::io::{self,BufRead};
-pub fn cat (args: &[&str]){
+use std::fs::File;
+use std::io::{self, Read, Write};
+
+pub fn cat(args: &[&str]) {
+    let mut stdout = io::stdout();
+
     if args.is_empty() {
         let stdin = io::stdin();
-        for line in stdin.lock().lines() {
-            match line {
-                Ok(line) => println!("{}", line),
+        let mut stdin = stdin.lock();
+
+        let mut buffer = [0u8; 8192];
+
+        loop {
+            match stdin.read(&mut buffer) {
+                Ok(0) => break,
+
+                Ok(n) => {
+                    if let Err(err) = stdout.write_all(&buffer[..n]) {
+                        eprintln!("cat: {}", err);
+                        break;
+                    }
+                }
+
                 Err(err) => {
                     eprintln!("cat: {}", err);
                     break;
                 }
             }
         }
+
         return;
     }
-    for file in args{
 
-        match std::fs::read_to_string(file) {
-            Ok(content) => print!("{}", content),
-            Err(err) => eprintln!("cat: {} : {}",file, err),
+    for file in args {
+        match File::open(file) {
+            Ok(mut file) => {
+                let mut buffer = [0u8; 8192];
+
+                loop {
+                    match file.read(&mut buffer) {
+                        Ok(0) => break,
+
+                        Ok(n) => {
+                            if let Err(err) = stdout.write_all(&buffer[..n]) {
+                                eprintln!("cat: {:?}: {}", file, err);
+                                break;
+                            }
+                        }
+
+                        Err(err) => {
+                            eprintln!("cat: {:?}: {}", file, err);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            Err(err) => {
+                eprintln!("cat: {}: {}", file, err);
+            }
         }
     }
-    
-}
 
+    let _ = stdout.flush();
+}
+ // todo list
 //test 
 
 // 1- cat file.txt (file is to long 2GB)
