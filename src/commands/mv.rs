@@ -1,4 +1,5 @@
 use std::path::*;
+use crate::commands::{resolve_path};
 
 pub fn mv(args : &[&str]) {
     if args.len() != 2 {
@@ -6,7 +7,11 @@ pub fn mv(args : &[&str]) {
         return;
 
     }  
-    let source = Path::new(&args[0]);
+    let source_path = resolve_path(args[0]);
+    let destination_path = resolve_path(args[1]);
+
+    
+    let source = Path::new(&source_path);
     if !source.exists() {
         eprintln!(
             "mv: cannot stat '{}': No such file or directory",
@@ -14,7 +19,7 @@ pub fn mv(args : &[&str]) {
         );
         return;
     }
-    let mut destination = PathBuf::from(&args[1]);
+    let mut destination = PathBuf::from(&destination_path);
 
     if destination.is_dir() {
         if let Some(name) = source.file_name() {
