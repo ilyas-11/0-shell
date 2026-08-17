@@ -1,19 +1,22 @@
 use std::path::{Path, PathBuf};
+use crate::commands::{resolve_path};
 
 pub fn cp(args: &[&str]) {
     if args.len() != 2 {
         eprintln!("usage: cp <source> <destination>");
         return;
     }
+    let source_path = resolve_path(args[0]);
+    let destination_path = resolve_path(args[1]);
 
-    let source = Path::new(args[0]);
+    let source = Path::new(&source_path);
 
     if source.is_dir() {
         eprintln!("cp: omitting directory '{}'", source.display());
         return;
     }
 
-    let mut destination: PathBuf = PathBuf::from(args[1]);
+    let mut destination: PathBuf = PathBuf::from(destination_path);
 
     if destination.is_dir() {
         if let Some(file_name) = source.file_name() {

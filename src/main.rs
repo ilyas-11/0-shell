@@ -4,16 +4,27 @@ mod commands;
 mod helpers;
 
 use helpers::parser::ParseError;
+
 fn main() {
     let stdin = io::stdin();
 
-    loop {
+    'shell: loop {
         print!("$ ");
-        io::stdout().flush().unwrap();
+
+        if let Err(err) = io::stdout().flush() {
+            eprintln!("shell 1: {}", err);
+            break;
+        }
 
         let mut input = String::new();
 
-        let bytes = stdin.read_line(&mut input).unwrap();
+        let bytes = match stdin.read_line(&mut input) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                eprintln!("shell 2: {}", err);
+                continue;
+            }
+        };
 
         if bytes == 0 {
             println!();
@@ -30,28 +41,53 @@ fn main() {
 
                 Err(ParseError::UnclosedDoubleQuote) => {
                     print!("dquote> ");
-                    io::stdout().flush().unwrap();
+
+                    if let Err(err) = io::stdout().flush() {
+                        eprintln!("shell 3: {}", err);
+                        break 'shell;
+                    }
 
                     let mut line = String::new();
-                    stdin.read_line(&mut line).unwrap();
 
-                    input.push_str(&line);
+                    match stdin.read_line(&mut line) {
+                        Ok(0) => {
+                            println!();
+                            break 'shell;
+                        }
+                        Ok(_) => {
+                            input.push_str(&line);
+                        }
+                        Err(err) => {
+                            eprintln!("shell 4: {}", err);
+                            break 'shell;
+                        }
+                    }
                 }
 
                 Err(ParseError::UnclosedSingleQuote) => {
                     print!("quote> ");
-                    io::stdout().flush().unwrap();
+
+                    if let Err(err) = io::stdout().flush() {
+                        eprintln!("shell 5: {}", err);
+                        break 'shell;
+                    }
 
                     let mut line = String::new();
-                    stdin.read_line(&mut line).unwrap();
 
-                    input.push_str(&line);
+                    match stdin.read_line(&mut line) {
+                        Ok(0) => {
+                            println!();
+                            break 'shell;
+                        }
+                        Ok(_) => {
+                            input.push_str(&line);
+                        }
+                        Err(err) => {
+                            eprintln!("shell 6: {}", err);
+                            break 'shell;
+                        }
+                    }
                 }
-
-                // Err(err) => {
-                //     eprintln!("{:?}", err);
-                //     continue;
-                // }
             }
         };
 
@@ -60,13 +96,12 @@ fn main() {
         }
 
         let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
-
         let command = parts[0];
         let args = &parts[1..];
-        println!("command: {}, args: {:?}", command, args);
+        println!("Command: '{}', Args: {:?}", command, args);
 
         match command {
-            "exit" => commands::exit::exit(&args),
+            "exit" => commands::exit::exit(args),
             "ls" => commands::ls::ls(args),
             "pwd" => commands::pwd::pwd(args),
             "cat" => commands::cat::cat(args),
@@ -76,7 +111,10 @@ fn main() {
             "mkdir" => commands::mkdir::mkdir(args),
             "echo" => commands::echo::echo(args),
             "cd" => commands::cd::cd(args),
-            _ => println!("Command '{}' not found", command)
+            _ => println!("Command '{}' not found", command),
         }
     }
 }
+
+
+//  cargo run | echo "jhjhjk"

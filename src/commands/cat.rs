@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{self, Read, Write};
+use crate::commands::{resolve_path};
 
 pub fn cat(args: &[&str]) {
     let mut stdout = io::stdout();
@@ -32,7 +33,8 @@ pub fn cat(args: &[&str]) {
     }
 
     for file in args {
-        match File::open(file) {
+        let path = resolve_path(file);
+        match File::open(&path) {
             Ok(mut file) => {
                 let mut buffer = [0u8; 8192];
 
