@@ -34,11 +34,49 @@ fn main() {
         if input.trim().is_empty() {
             continue;
         }
+        // let state = helpers::parser::parse(input.trim_end());
+        // while state == incomplate {
 
+        // }
         let parts = loop {
             match helpers::parser::parse(input.trim_end()) {
                 Ok(args) => break args,
+                Err(ParseError::LineContinuation) => {
+                    println!("555input: {}", input);
+                    print!("> ");
 
+                    if let Err(err) = io::stdout().flush() {
+                        eprintln!("shell 7: {}", err);
+                        break 'shell;
+                    }
+
+                    let mut line = String::new();
+                    
+                    match stdin.read_line(&mut line) {
+                        Ok(0) => {
+                            println!("ddd");
+                            break 'shell;
+                        }
+                        Ok(_) => {
+                            
+                            input.pop();
+                            input.pop();
+                            if line.ends_with('\n') {
+                                line.pop();
+                            }
+                            println!("555input: {}", input);
+                            println!("line: {}", &line);
+                            input.push_str(&line);
+                        }
+                        Err(err) => {
+                            eprintln!("shell 8: {}", err);
+                            break 'shell;
+                        }
+                        _ => {
+                            print!("5424");
+                        }
+                    }
+                }
                 Err(ParseError::UnclosedDoubleQuote) => {
                     print!("dquote> ");
 
@@ -98,7 +136,6 @@ fn main() {
         let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         let command = parts[0];
         let args = &parts[1..];
-        println!("Command: '{}', Args: {:?}", command, args);
 
         match command {
             "exit" => commands::exit::exit(args),

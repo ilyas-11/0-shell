@@ -3,6 +3,8 @@
 pub enum ParseError {
     UnclosedSingleQuote,
     UnclosedDoubleQuote,
+    LineContinuation,
+
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -10,41 +12,47 @@ enum Mode{
     Normal,
     Single,
     Double,
+    slash,
+
 }
 pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
     let mut args = Vec::new();
     let mut current = String::new();
     let mut mode = Mode::Normal;
 
-    let mut chars = input.chars();
+    let mut chars = input.chars().peekable();
     while let Some(ch) = chars.next() {
-        //println!("{} ", ch);
         match ch {
             '\\' if mode == Mode::Normal => {
-                if let Some(next) = chars.next() {
-                    current.push(next);
+                match chars.next() {
+                    Some(next) => {
+                        current.push(next);
+                    }
+                    None => {
+                        //eprintln!("------*****");
+                        // return Err(ParseError::LineContinuation);
+                    }
                 }
             }
             '\\' if mode == Mode::Double => {
-                if let Some(&next) = chars.clone().next().as_ref() {
-                match next {
-                    '"' | '\\' | '$' | '`' => {
-                        current.push(next);
-                        chars.next();
-                    }
+                if let Some(&next) = chars.peek() {
+                    match next {
+                        '"' | '\\' | '$' | '`' => {
+                            current.push(next);
+                            chars.next();
+                        }
 
-                    '\n' => {
-                        chars.next();
-                    }
+                        '\n' => {
+                            chars.next();
+                        }
 
-                    _ => {
-                        current.push('\\');
+                        _ => {
+                            current.push('\\');
+                        }
                     }
+                } else {
+                    current.push('\\');
                 }
-            } else {
-                current.push('\\');
-            }
-            // #
             }
             '"' if mode ==Mode::Normal||mode == Mode::Double=> {
                 if mode ==Mode::Normal{
@@ -69,16 +77,20 @@ pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
             _ => current.push(ch),
         }
     }
-
     if !current.is_empty() {
         args.push(current);
     }
+    
+    // println!("*****input: {}", input);
     if mode == Mode::Double {
         return Err(ParseError::UnclosedDoubleQuote);
     }
 
     if mode == Mode::Single {
         return Err(ParseError::UnclosedSingleQuote);
+    }
+    if input.ends_with('\\') && mode == Mode::Normal {
+        return Err(ParseError::LineContinuation);
     }
 
     Ok(args)
