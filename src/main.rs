@@ -42,7 +42,6 @@ fn main() {
             match helpers::parser::parse(input.trim_end()) {
                 Ok(args) => break args,
                 Err(ParseError::LineContinuation) => {
-                    println!("555input: {}", input);
                     print!("> ");
 
                     if let Err(err) = io::stdout().flush() {
@@ -51,29 +50,29 @@ fn main() {
                     }
 
                     let mut line = String::new();
-                    
+
                     match stdin.read_line(&mut line) {
                         Ok(0) => {
-                            println!("ddd");
+                            println!();
                             break 'shell;
                         }
+
                         Ok(_) => {
-                            
-                            input.pop();
-                            input.pop();
-                            if line.ends_with('\n') {
-                                line.pop();
+                            //println!("input: {}****", input);
+                            input = input.trim_end_matches(['\n', '\r']).to_string();
+
+                            if input.ends_with('\\') {
+                                input.pop();
                             }
-                            println!("555input: {}", input);
-                            println!("line: {}", &line);
-                            input.push_str(&line);
+
+                            let line = line.trim_end_matches(['\n', '\r']);
+
+                            input.push_str(line);
                         }
+
                         Err(err) => {
                             eprintln!("shell 8: {}", err);
                             break 'shell;
-                        }
-                        _ => {
-                            print!("5424");
                         }
                     }
                 }

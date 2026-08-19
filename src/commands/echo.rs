@@ -2,11 +2,16 @@ pub  fn echo(args: &[&str]) {
     println!("{}", args.join(" "));
 }
 
-//   test
+// / busybox sh
 
-// echo hello world
-//echo "hello         world"
-// echo "hello
-//echo ""
-//echo
-//
+
+// BusyBox v1.30.1 (Ubuntu 1:1.30.1-7ubuntu3.1) built-in shell (ash)
+// Enter 'help' for a list of built-in commands.
+
+// /home/iabid/Desktop/0-shell $ echo \\\\
+// \\
+// /home/iabid/Desktop/0-shell $ %                                                               
+// ➜  0-shell git:(main) ✗ sh
+// $ echo \\\\
+// \
+//$ 

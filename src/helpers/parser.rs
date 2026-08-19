@@ -12,8 +12,6 @@ enum Mode{
     Normal,
     Single,
     Double,
-    slash,
-
 }
 pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
     let mut args = Vec::new();
@@ -29,8 +27,7 @@ pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
                         current.push(next);
                     }
                     None => {
-                        //eprintln!("------*****");
-                        // return Err(ParseError::LineContinuation);
+                        return Err(ParseError::LineContinuation);
                     }
                 }
             }
@@ -41,11 +38,11 @@ pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
                             current.push(next);
                             chars.next();
                         }
-
+                        
                         '\n' => {
                             chars.next();
                         }
-
+                        
                         _ => {
                             current.push('\\');
                         }
@@ -68,20 +65,21 @@ pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
                     mode =Mode::Normal
                 }
             }
-           ' ' | '\t' if mode ==Mode::Normal => {
+            ' ' | '\t' if mode ==Mode::Normal => {
                 if !current.is_empty() {
                     args.push(std::mem::take(&mut current));
                 }
             }
-
+            
             _ => current.push(ch),
+
+                
         }
     }
     if !current.is_empty() {
         args.push(current);
     }
     
-    // println!("*****input: {}", input);
     if mode == Mode::Double {
         return Err(ParseError::UnclosedDoubleQuote);
     }
@@ -89,10 +87,6 @@ pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
     if mode == Mode::Single {
         return Err(ParseError::UnclosedSingleQuote);
     }
-    if input.ends_with('\\') && mode == Mode::Normal {
-        return Err(ParseError::LineContinuation);
-    }
-
     Ok(args)
 }
 
