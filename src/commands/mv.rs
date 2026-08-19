@@ -31,5 +31,4 @@ pub fn mv(args : &[&str]) {
         eprintln!("mv: {}", err);
     }
 }
-// mv a.txt b.txt q  hi
 

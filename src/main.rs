@@ -7,7 +7,7 @@ use helpers::parser::ParseError;
 
 fn main() {
     let stdin = io::stdin();
-
+    let mut old_pwd: Option<String> = None;
     'shell: loop {
         print!("$ ");
 
@@ -135,7 +135,7 @@ fn main() {
         let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         let command = parts[0];
         let args = &parts[1..];
-
+        // bin -- 
         match command {
             "exit" => commands::exit::exit(args),
             "ls" => commands::ls::ls(args),
@@ -146,7 +146,7 @@ fn main() {
             "rm" => commands::rm::rm(args),
             "mkdir" => commands::mkdir::mkdir(args),
             "echo" => commands::echo::echo(args),
-            "cd" => commands::cd::cd(args),
+            "cd" => commands::cd::cd(args, &mut old_pwd),
             _ => println!("Command '{}' not found", command),
         }
     }

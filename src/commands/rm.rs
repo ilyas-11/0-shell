@@ -7,9 +7,14 @@ pub fn rm (args : &[&str]) {
         return;
     }
     let mut recursive = false;
+    let mut skip_flag = false;
     let mut paths = Vec::new();
     for arg in args {
-        if *arg == "-r"|| *arg == "-R"||*arg == "--recursive"{
+        if *arg== "--"{
+            skip_flag = true;
+            continue;
+        }
+        if !skip_flag && (*arg == "-r"|| *arg == "-R"||*arg == "--recursive"){
             recursive = true;
         } else {
             paths.push(*arg);

@@ -15,13 +15,17 @@ pub fn cp(args: &[&str]) {
         eprintln!("cp: omitting directory '{}'", source.display());
         return;
     }
-
+    
     let mut destination: PathBuf = PathBuf::from(destination_path);
 
     if destination.is_dir() {
         if let Some(file_name) = source.file_name() {
             destination.push(file_name);
         }
+    }
+    if source == destination {
+        eprintln!("cp: '{}' and '{}' are the same file", source.display(), destination.display());
+        return;
     }
 
     if let Err(err) = std::fs::copy(source, &destination) {

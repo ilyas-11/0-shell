@@ -82,9 +82,7 @@ pub fn ls(args: &[&str]) {
             #[cfg(unix)]
             let permissions = permissions_to_string(metadata.permissions().mode());
 
-            #[cfg(not(unix))]
-            let permissions = "---------".to_string();
-
+           
             println!(
                 "{}{} {:>10} {}",
                 file_type,
