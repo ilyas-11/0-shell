@@ -24,10 +24,18 @@ pub fn rm (args : &[&str]) {
         eprintln!("rm: missing operand");
         return;
     }
+    
+
     for path in paths {
         let path = resolve_path(path);
         let path_obj = Path::new(&path);
-
+        if !is_allowed_path(path_obj) {
+            eprintln!(
+                "rm: cannot remove '{}': outside sandbox",
+                path
+            );
+            continue;
+        }
         let result = if path_obj.is_dir() {
             if recursive {
                 std::fs::remove_dir_all(path_obj)
@@ -43,4 +51,22 @@ pub fn rm (args : &[&str]) {
             eprintln!("rm: {}: {}", path, err);
         }
     }
+}
+fn is_allowed_path(path: &Path) -> bool {
+    let sandbox = match std::env::current_dir() {
+        Ok(dir) => dir.join("sandbox"),
+        Err(_) => return false,
+    };
+
+    let sandbox = match sandbox.canonicalize() {
+        Ok(path) => path,
+        Err(_) => return false,
+    };
+
+    let path = match path.canonicalize() {
+        Ok(path) => path,
+        Err(_) => return false,
+    };
+
+    path.starts_with(&sandbox)
 }
