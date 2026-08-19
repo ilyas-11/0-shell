@@ -21,6 +21,9 @@ pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
     let mut chars = input.chars().peekable();
     while let Some(ch) = chars.next() {
         match ch {
+             '#' if mode == Mode::Normal => {
+                break;
+            }
             '\\' if mode == Mode::Normal => {
                 match chars.next() {
                     Some(next) => {
