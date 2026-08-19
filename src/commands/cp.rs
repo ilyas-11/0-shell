@@ -23,7 +23,11 @@ pub fn cp(args: &[&str]) {
             destination.push(file_name);
         }
     }
-
+     if source == destination {
+        eprintln!("cp: '{}' and '{}' are the same file", source.display(), destination.display());
+        return;
+    }
+    
     if let Err(err) = std::fs::copy(source, &destination) {
         eprintln!("cp: {}", err);
     }
