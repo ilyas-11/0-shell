@@ -2,37 +2,45 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use crate::commands::{resolve_path};
 
-pub fn cat(args: &[&str]) {
-    let mut stdout = io::stdout();
+fn cat_stdin(stdout: &mut io::Stdout) {
+    let stdin = io::stdin();
+    let mut stdin = stdin.lock();
 
-    if args.is_empty() {
-        let stdin = io::stdin();
-        let mut stdin = stdin.lock();
+    let mut buffer = [0u8; 8192];
 
-        let mut buffer = [0u8; 8192];
+    loop {
+        match stdin.read(&mut buffer) {
+            Ok(0) => break,
 
-        loop {
-            match stdin.read(&mut buffer) {
-                Ok(0) => break,
-
-                Ok(n) => {
-                    if let Err(err) = stdout.write_all(&buffer[..n]) {
-                        eprintln!("cat: {}", err);
-                        break;
-                    }
-                }
-
-                Err(err) => {
+            Ok(n) => {
+                if let Err(err) = stdout.write_all(&buffer[..n]) {
                     eprintln!("cat: {}", err);
                     break;
                 }
             }
-        }
 
+            Err(err) => {
+                eprintln!("cat: {}", err);
+                break;
+            }
+        }
+    }
+}
+
+pub fn cat(args: &[&str]) {
+    let mut stdout = io::stdout();
+
+    if args.is_empty() {
+        cat_stdin(&mut stdout);
         return;
     }
 
+
     for file in args {
+        if *file == "-" {
+            cat_stdin(&mut stdout);
+            continue;
+        }
         let path = resolve_path(file);
         match File::open(&path) {
             Ok(mut file) => {
@@ -44,13 +52,13 @@ pub fn cat(args: &[&str]) {
 
                         Ok(n) => {
                             if let Err(err) = stdout.write_all(&buffer[..n]) {
-                                eprintln!("cat: {:?}: {}", file, err);
+                                eprintln!("cat: {}: {}", path, err);
                                 break;
                             }
                         }
 
                         Err(err) => {
-                            eprintln!("cat: {:?}: {}", file, err);
+                            eprintln!("cat: {}: {}", path, err);
                             break;
                         }
                     }
@@ -58,12 +66,13 @@ pub fn cat(args: &[&str]) {
             }
 
             Err(err) => {
-                eprintln!("cat: {}: {}", file, err);
+                eprintln!("cat: {}: {}", path, err);
             }
         }
     }
 
     let _ = stdout.flush();
+
 }
  // todo list
 //test 
