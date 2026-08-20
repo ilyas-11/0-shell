@@ -35,22 +35,22 @@ pub fn cat(args: &[&str]) {
     for file in args {
         let path = resolve_path(file);
         match File::open(&path) {
-            Ok(mut file) => {
+            Ok(mut file_handle) => {
                 let mut buffer = [0u8; 8192];
 
                 loop {
-                    match file.read(&mut buffer) {
+                    match file_handle.read(&mut buffer) {
                         Ok(0) => break,
 
                         Ok(n) => {
                             if let Err(err) = stdout.write_all(&buffer[..n]) {
-                                eprintln!("cat: {:?}: {}", file, err);
+                                eprintln!("cat: {}: {}", file, err);
                                 break;
                             }
                         }
 
                         Err(err) => {
-                            eprintln!("cat: {:?}: {}", file, err);
+                            eprintln!("cat: {}: {}", file, err);
                             break;
                         }
                     }

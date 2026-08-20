@@ -4,19 +4,16 @@ pub fn exit(args: &[&str]) {
     if args.is_empty() {
         process::exit(0);
     }
-    if args[0].chars().any(|c| !c.is_digit(10)) {
-        eprintln!("exit: {}: numeric argument required", args[0]);
-        return;
-    }
     
     match args[0].parse::<i128>() {
         Ok(status) => {
-            if status < 0 {
-                eprintln!("exit: {}: numeric argument required", args[0]);
+            if args.len() > 1 {
+                eprintln!("exit: too many arguments");
+                // Bash does not exit if the first argument is numeric but there are too many arguments
                 return;
             }
-            process::exit((status%256) as i32);
-
+            let exit_code = ((status % 256) + 256) % 256;
+            process::exit(exit_code as i32);
         }
         Err(_) => {
             eprintln!("exit: {}: numeric argument required", args[0]);

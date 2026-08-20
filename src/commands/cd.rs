@@ -47,9 +47,9 @@ pub fn cd(args: &[&str], old_pwd: &mut Option<String>) {
     
     if let Err(err) = std::env::set_current_dir(&target) {
         eprintln!("cd: {}: {}", target, err);
+    } else {
+        *old_pwd = Some(current.to_string_lossy().to_string());
     }
-      *old_pwd = Some(current.to_string_lossy().to_string());
-
     if args.first() == Some(&"-") {
         println!("{}", target);
     }

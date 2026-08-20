@@ -12,7 +12,7 @@ pub fn mv(args : &[&str]) {
 
     
     let source = Path::new(&source_path);
-    if !source.exists() {
+    if source.symlink_metadata().is_err() {
         eprintln!(
             "mv: cannot stat '{}': No such file or directory",
             source.display()
