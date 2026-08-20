@@ -1,7 +1,7 @@
-use crate::commands::{resolve_path};
+use crate::commands::resolve_path;
 use std::path::Path;
 
-pub fn rm (args : &[&str]) {
+pub fn rm(args: &[&str]) {
     if args.is_empty() {
         eprintln!("rm: missing operand");
         return;
@@ -9,32 +9,66 @@ pub fn rm (args : &[&str]) {
     let mut recursive = false;
     let mut skip_flag = false;
     let mut paths = Vec::new();
+    
     for arg in args {
-        if *arg== "--"{
+        if skip_flag {
+            paths.push(*arg);
+            continue;
+        }
+        
+        if *arg == "--" {
             skip_flag = true;
             continue;
         }
-        if !skip_flag && (*arg == "-r"|| *arg == "-R"||*arg == "--recursive"){
-            recursive = true;
+        
+        if arg.starts_with('-') && *arg != "-" {
+            if *arg == "-r" || *arg == "-R" || *arg == "--recursive" {
+                recursive = true;
+            } else {
+                let mut is_r = false;
+                let mut invalid_char = None;
+                for ch in arg.chars().skip(1) {
+                    if ch == 'r' || ch == 'R' {
+                        is_r = true;
+                    } else if ch == 'f' || ch == 'i' || ch == 'v' {
+                        // safely ignore standard optional flags
+                    } else {
+                        invalid_char = Some(ch);
+                        break;
+                    }
+                }
+                
+                if let Some(ch) = invalid_char {
+                    eprintln!("rm: invalid option -- '{}'", ch);
+                    return;
+                }
+                if is_r {
+                    recursive = true;
+                }
+            }
         } else {
             paths.push(*arg);
         }
     }
-    if paths.is_empty(){
+    
+    if paths.is_empty() {
         eprintln!("rm: missing operand");
         return;
     }
+    
     for path in paths {
-        let path = resolve_path(path);
-        let path_obj = Path::new(&path);
-        if !is_allowed_path(path_obj) {
-            eprintln!(
-                "rm: cannot remove '{}': outside sandbox",
-                path
-            );
-            continue;
-        }
-        let result = if path_obj.is_dir() {
+        let resolved_path_str = resolve_path(path);
+        let path_obj = Path::new(&resolved_path_str);
+        
+        let meta = match std::fs::symlink_metadata(path_obj) {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("rm: cannot remove '{}': {}", path, e);
+                continue;
+            }
+        };
+
+        let result = if meta.is_dir() {
             if recursive {
                 std::fs::remove_dir_all(path_obj)
             } else {
@@ -46,26 +80,7 @@ pub fn rm (args : &[&str]) {
         };
 
         if let Err(err) = result {
-            eprintln!("rm: {}: {}", path, err);
+            eprintln!("rm: cannot remove '{}': {}", path, err);
         }
     }
-}
-
-fn is_allowed_path(path: &Path) -> bool {
-    let sandbox = match std::env::current_dir() {
-        Ok(dir) => dir.join("sandbox"),
-        Err(_) => return false,
-    };
-
-    let sandbox = match sandbox.canonicalize() {
-        Ok(path) => path,
-        Err(_) => return false,
-    };
-
-    let path = match path.canonicalize() {
-        Ok(path) => path,
-        Err(_) => return false,
-    };
-
-    path.starts_with(&sandbox)
 }

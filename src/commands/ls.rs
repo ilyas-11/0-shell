@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::{Path, PathBuf};
+use std::cmp::Ordering;
 
 #[repr(C)]
 struct tm {
@@ -187,6 +188,24 @@ fn print_entries(entries: &[EntryInfo], long_format: bool, classify: bool, ug: &
     }
 }
 
+fn ls_cmp(a: &str, b: &str) -> Ordering {
+    if a == b { return Ordering::Equal; }
+    if a == "." { return Ordering::Less; }
+    if b == "." { return Ordering::Greater; }
+    if a == ".." { return Ordering::Less; }
+    if b == ".." { return Ordering::Greater; }
+    
+    let a_clean: String = a.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect();
+    let b_clean: String = b.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect();
+    
+    let cmp = a_clean.cmp(&b_clean);
+    if cmp == Ordering::Equal {
+        a.cmp(b)
+    } else {
+        cmp
+    }
+}
+
 pub fn ls(args: &[&str]) {
     let mut show_hidden = false;
     let mut long_format = false;
@@ -248,7 +267,7 @@ pub fn ls(args: &[&str]) {
     }
     
     errs.sort_by(|a, b| a.0.cmp(&b.0));
-    files.sort_by(|a, b| a.name.cmp(&b.name));
+    files.sort_by(|a, b| ls_cmp(&a.name, &b.name));
     dirs.sort();
     
     for (path, err) in &errs {
@@ -300,7 +319,7 @@ pub fn ls(args: &[&str]) {
                     }
                 }
                 
-                entries.sort_by(|a, b| a.name.cmp(&b.name));
+                entries.sort_by(|a, b| ls_cmp(&a.name, &b.name));
                 print_entries(&entries, long_format, classify, &ug, true);
             }
             Err(e) => {
