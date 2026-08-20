@@ -13,6 +13,7 @@ enum Mode{
     Single,
     Double,
 }
+
 pub fn parse(input: &str) -> Result<Vec<String>,ParseError> {
     let mut args = Vec::new();
     let mut current = String::new();
