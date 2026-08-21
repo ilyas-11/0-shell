@@ -1,14 +1,38 @@
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 mod commands;
 mod helpers;
 
 use helpers::parser::ParseError;
 
+/// The working directory can vanish under the shell: `rm -r` on a tree that
+/// contains it, or another program removing it. `getcwd` then fails and `pwd`,
+/// `ls` and every relative path break with no way back. Climb `last_good` until
+/// a surviving ancestor is found and stand there instead, so removing the
+/// directory you were in leaves you in the closest one that still exists.
+fn sync_cwd(last_good: &mut PathBuf) {
+    if let Ok(path) = std::env::current_dir() {
+        *last_good = path;
+        return;
+    }
+
+    let mut candidate = last_good.clone();
+    while candidate.pop() {
+        if std::env::set_current_dir(&candidate).is_ok() {
+            *last_good = candidate;
+            return;
+        }
+    }
+}
+
 fn main() {
     let stdin = io::stdin();
     let mut old_pwd: Option<String> = None;
+    let mut cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
     'shell: loop {
+        sync_cwd(&mut cwd);
+
         print!("$ ");
 
         if let Err(err) = io::stdout().flush() {
