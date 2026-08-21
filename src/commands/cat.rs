@@ -1,69 +1,58 @@
 use std::fs::File;
 use std::io::{self, Read, Write};
-use crate::commands::{resolve_path};
+use crate::commands::{display_operand, err_msg, resolve_path};
 
-pub fn cat(args: &[&str]) {
-    let mut stdout = io::stdout();
+fn copy_out(src: &mut dyn Read, out: &mut dyn Write, name: &str) {
+    let mut buffer = [0u8; 8192];
 
-    if args.is_empty() {
-        let stdin = io::stdin();
-        let mut stdin = stdin.lock();
+    loop {
+        match src.read(&mut buffer) {
+            Ok(0) => break,
 
-        let mut buffer = [0u8; 8192];
-
-        loop {
-            match stdin.read(&mut buffer) {
-                Ok(0) => break,
-
-                Ok(n) => {
-                    if let Err(err) = stdout.write_all(&buffer[..n]) {
-                        eprintln!("cat: {}", err);
-                        break;
-                    }
-                }
-
-                Err(err) => {
-                    eprintln!("cat: {}", err);
+            Ok(n) => {
+                if let Err(err) = out.write_all(&buffer[..n]) {
+                    eprintln!("cat: {}: {}", name, err_msg(&err));
                     break;
-                }
-            }
-        }
-
-        return;
-    }
-
-    for file in args {
-        let path = resolve_path(file);
-        match File::open(&path) {
-            Ok(mut file_handle) => {
-                let mut buffer = [0u8; 8192];
-
-                loop {
-                    match file_handle.read(&mut buffer) {
-                        Ok(0) => break,
-
-                        Ok(n) => {
-                            if let Err(err) = stdout.write_all(&buffer[..n]) {
-                                eprintln!("cat: {}: {}", file, err);
-                                break;
-                            }
-                        }
-
-                        Err(err) => {
-                            eprintln!("cat: {}: {}", file, err);
-                            break;
-                        }
-                    }
                 }
             }
 
             Err(err) => {
-                eprintln!("cat: {}: {}", file, err);
+                eprintln!("cat: {}: {}", name, err_msg(&err));
+                break;
             }
         }
     }
+}
 
-    let _ = stdout.flush();
+pub fn cat(args: &[&str]) {
+    // Lock stdout once for the whole run instead of per 8 KiB write.
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+
+    // No operands is the same as a single `-`: read standard input.
+    let stdin_only = ["-"];
+    let files: &[&str] = if args.is_empty() { &stdin_only } else { args };
+
+    for &file in files {
+        if file == "-" {
+            copy_out(&mut io::stdin().lock(), &mut out, "-");
+            continue;
+        }
+
+        let name = display_operand(file);
+        let path = resolve_path(file);
+
+        match File::open(&path) {
+            Ok(mut file_handle) => copy_out(&mut file_handle, &mut out, &name),
+            Err(err) => eprintln!("cat: {}: {}", name, err_msg(&err)),
+        }
+    }
+
+    // A tail with no trailing newline stays buffered until here, so this is the
+    // only place its write error can surface. GNU blames `write error`, not the file.
+    if let Err(err) = out.flush() {
+        eprintln!("cat: write error: {}", err_msg(&err));
+    }
 }
  // todo list
 //test 

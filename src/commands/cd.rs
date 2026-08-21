@@ -1,5 +1,5 @@
 
-use crate::commands::{resolve_path};
+use crate::commands::{err_msg, resolve_path};
 pub fn cd(args: &[&str], old_pwd: &mut Option<String>) {
     if args.len() > 2 {
         eprintln!("cd: too many arguments");
@@ -40,13 +40,19 @@ pub fn cd(args: &[&str], old_pwd: &mut Option<String>) {
     let current = match std::env::current_dir() {
         Ok(path) => path,
         Err(err) => {
-            eprintln!("cd: {}", err);
+            eprintln!("cd: {}", err_msg(&err));
             return;
         }
     };
-    
+
+    // `cd ""` stays where it is, but still records OLDPWD, like sh and bash.
+    if target.is_empty() {
+        *old_pwd = Some(current.to_string_lossy().to_string());
+        return;
+    }
+
     if let Err(err) = std::env::set_current_dir(&target) {
-        eprintln!("cd: {}: {}", target, err);
+        eprintln!("cd: {}: {}", target, err_msg(&err));
     } else {
         *old_pwd = Some(current.to_string_lossy().to_string());
     }

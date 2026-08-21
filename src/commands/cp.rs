@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use crate::commands::{resolve_path};
+use crate::commands::{err_msg, is_same_file, resolve_path};
 
 pub fn cp(args: &[&str]) {
     if args.len() != 2 {
@@ -23,13 +23,13 @@ pub fn cp(args: &[&str]) {
             destination.push(file_name);
         }
     }
-     if source == destination {
+     if is_same_file(source, &destination) {
         eprintln!("cp: '{}' and '{}' are the same file", source.display(), destination.display());
         return;
     }
-    
+
     if let Err(err) = std::fs::copy(source, &destination) {
-        eprintln!("cp: {}", err);
+        eprintln!("cp: {}", err_msg(&err));
     }
 }
 

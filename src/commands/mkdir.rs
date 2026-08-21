@@ -1,4 +1,4 @@
-use crate::commands::{resolve_path};
+use crate::commands::{err_msg, resolve_path};
 
 pub fn mkdir (args :&[&str]) {
     if args.is_empty() {
@@ -7,7 +7,7 @@ pub fn mkdir (args :&[&str]) {
     for file in args{
         let path= resolve_path(file);
         if let Err(err) = std::fs::create_dir(&path) {
-            eprintln!("mkdir: {}: {}",file, err);
+            eprintln!("mkdir: {}: {}",file, err_msg(&err));
         }
-    } 
+    }
 }

@@ -1,22 +1,72 @@
 use std::collections::HashMap;
+use std::ffi::CString;
 use std::fs;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
+use std::time::{SystemTime, UNIX_EPOCH};
+use crate::commands::err_msg;
 
 #[repr(C)]
 struct tm {
     tm_sec: i32, tm_min: i32, tm_hour: i32, tm_mday: i32, tm_mon: i32,
     tm_year: i32, tm_wday: i32, tm_yday: i32, tm_isdst: i32, tm_gmtoff: i64, tm_zone: *const i8,
 }
-unsafe extern "C" { fn localtime_r(timep: *const i64, result: *mut tm) -> *mut tm; }
+unsafe extern "C" {
+    fn localtime_r(timep: *const i64, result: *mut tm) -> *mut tm;
+    fn lgetxattr(path: *const i8, name: *const i8, value: *mut u8, size: usize) -> isize;
+}
 
-fn format_mtime(mtime: i64) -> String {
+fn format_mtime(mtime: i64, mtime_nsec: i64) -> String {
     let mut tm = tm { tm_sec: 0, tm_min: 0, tm_hour: 0, tm_mday: 0, tm_mon: 0, tm_year: 0, tm_wday: 0, tm_yday: 0, tm_isdst: 0, tm_gmtoff: 0, tm_zone: std::ptr::null() };
     unsafe { localtime_r(&mtime, &mut tm); }
     let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     let month = months[(tm.tm_mon as usize) % 12];
-    format!("{} {:2} {:02}:{:02}", month, tm.tm_mday, tm.tm_hour, tm.tm_min)
+
+    // GNU ls shows the time only for "recent" timestamps - inside the last six
+    // months (half a Gregorian year) and not in the future. Everything else
+    // gets the year, padded to the same 12 columns. The clock is read per entry
+    // and compared down to the nanosecond, which is what keeps a file written
+    // during this very second from looking like it comes from the future.
+    const SIX_MONTHS: i64 = 15_778_476;
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    let now = (now.as_secs() as i64, now.subsec_nanos() as i64);
+    let recent = mtime > now.0 - SIX_MONTHS && (mtime, mtime_nsec) < now;
+
+    if recent {
+        format!("{} {:2} {:02}:{:02}", month, tm.tm_mday, tm.tm_hour, tm.tm_min)
+    } else {
+        format!("{} {:2}  {:4}", month, tm.tm_mday, tm.tm_year + 1900)
+    }
+}
+
+/// glibc encodes the major/minor pair into a single `dev_t`.
+fn dev_major(dev: u64) -> u32 {
+    (((dev >> 8) & 0xfff) as u32) | (((dev >> 32) as u32) & !0xfff)
+}
+
+fn dev_minor(dev: u64) -> u32 {
+    ((dev & 0xff) as u32) | (((dev >> 12) as u32) & !0xff)
+}
+
+fn is_device(meta: &fs::Metadata) -> bool {
+    let ft = meta.file_type();
+    ft.is_char_device() || ft.is_block_device()
+}
+
+/// GNU ls marks an entry carrying an ACL with a `+` after the mode bits. It
+/// does not look through symlinks, so `lgetxattr` is the right call.
+fn has_acl(path: &Path) -> bool {
+    let Ok(path) = CString::new(path.as_os_str().as_bytes()) else {
+        return false;
+    };
+    for name in [c"system.posix_acl_access", c"system.posix_acl_default"] {
+        if unsafe { lgetxattr(path.as_ptr(), name.as_ptr(), std::ptr::null_mut(), 0) } >= 0 {
+            return true;
+        }
+    }
+    false
 }
 
 struct UsersGroups {
@@ -104,12 +154,22 @@ fn classify_char(meta: &fs::Metadata) -> Option<char> {
     }
 }
 
-fn get_symlink_target(path: &Path) -> String {
-    if let Ok(target) = fs::read_link(path) {
-        format!(" -> {}", target.display())
-    } else {
-        String::new()
+/// The `-> target` tail of a symlink in long format. With `-F`, GNU classifies
+/// the target by its own type rather than tagging the link name with `@`.
+fn get_symlink_target(path: &Path, classify: bool) -> String {
+    let Ok(target) = fs::read_link(path) else {
+        return String::new();
+    };
+
+    let mut tail = format!(" -> {}", target.display());
+    if classify {
+        if let Ok(meta) = fs::metadata(path) {
+            if let Some(c) = classify_char(&meta) {
+                tail.push(c);
+            }
+        }
     }
+    tail
 }
 
 struct EntryInfo {
@@ -134,45 +194,79 @@ fn print_entries(entries: &[EntryInfo], long_format: bool, classify: bool, ug: &
         let mut max_user = 0;
         let mut max_group = 0;
         let mut max_size = 0;
+        let mut max_major = 0;
+        let mut max_minor = 0;
+        let mut any_device = false;
         let mut total_blocks = 0;
 
         for e in entries {
             max_links = max_links.max(e.meta.nlink().to_string().len());
             max_user = max_user.max(ug.get_user(e.meta.uid()).len());
             max_group = max_group.max(ug.get_group(e.meta.gid()).len());
-            max_size = max_size.max(e.meta.len().to_string().len());
+            if is_device(&e.meta) {
+                any_device = true;
+                max_major = max_major.max(dev_major(e.meta.rdev()).to_string().len());
+                max_minor = max_minor.max(dev_minor(e.meta.rdev()).to_string().len());
+            } else {
+                max_size = max_size.max(e.meta.len().to_string().len());
+            }
             total_blocks += e.meta.blocks();
         }
+
+        // Device files show "major, minor" where a size would go, so the column
+        // has to be wide enough for whichever of the two forms is longer.
+        let device_width = max_major + 2 + max_minor;
+        let max_size = if any_device { max_size.max(device_width) } else { max_size };
+
+        // The ACL marker only gets a column when something in the listing has
+        // one; then every row is padded to keep the fields aligned.
+        let acls: Vec<bool> = entries.iter().map(|e| has_acl(&e.path)).collect();
+        let any_acl = acls.iter().any(|&has| has);
 
         if is_dir_contents {
             println!("total {}", total_blocks / 2);
         }
 
-        for e in entries {
+        for (e, &entry_has_acl) in entries.iter().zip(&acls) {
             let ft = file_type_char(e.meta.file_type());
             let perms = permissions_string(e.meta.mode());
+            let acl = if !any_acl {
+                ""
+            } else if entry_has_acl {
+                "+"
+            } else {
+                " "
+            };
             let links = e.meta.nlink().to_string();
             let user = ug.get_user(e.meta.uid());
             let group = ug.get_group(e.meta.gid());
-            let size = e.meta.len().to_string();
-            let mtime = format_mtime(e.meta.mtime());
-            
-            let mut name = e.name.clone();
-            if classify {
-                if let Some(c) = classify_char(&e.meta) {
-                    name.push(c);
-                }
-            }
-            
-            let symlink = if e.meta.file_type().is_symlink() {
-                get_symlink_target(&e.path)
+            let mtime = format_mtime(e.meta.mtime(), e.meta.mtime_nsec());
+
+            // Any slack in the column is padded onto the major number, as GNU does.
+            let size = if is_device(&e.meta) {
+                format!("{:>major_w$}, {:>minor_w$}",
+                    dev_major(e.meta.rdev()), dev_minor(e.meta.rdev()),
+                    major_w = max_major + (max_size - device_width), minor_w = max_minor
+                )
             } else {
+                format!("{:>size_w$}", e.meta.len(), size_w = max_size)
+            };
+
+            let mut name = e.name.clone();
+            let symlink = if e.meta.file_type().is_symlink() {
+                get_symlink_target(&e.path, classify)
+            } else {
+                if classify {
+                    if let Some(c) = classify_char(&e.meta) {
+                        name.push(c);
+                    }
+                }
                 String::new()
             };
-            
-            println!("{}{} {:>links_w$} {:<user_w$} {:<group_w$} {:>size_w$} {} {}{}",
-                ft, perms, links, user, group, size, mtime, name, symlink,
-                links_w = max_links, user_w = max_user, group_w = max_group, size_w = max_size
+
+            println!("{}{}{} {:>links_w$} {:<user_w$} {:<group_w$} {} {} {}{}",
+                ft, perms, acl, links, user, group, size, mtime, name, symlink,
+                links_w = max_links, user_w = max_user, group_w = max_group
             );
         }
     } else {
@@ -188,22 +282,59 @@ fn print_entries(entries: &[EntryInfo], long_format: bool, classify: bool, ug: &
     }
 }
 
-fn ls_cmp(a: &str, b: &str) -> Ordering {
-    if a == b { return Ordering::Equal; }
-    if a == "." { return Ordering::Less; }
-    if b == "." { return Ordering::Greater; }
-    if a == ".." { return Ordering::Less; }
-    if b == ".." { return Ordering::Greater; }
-    
-    let a_clean: String = a.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect();
-    let b_clean: String = b.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect();
-    
-    let cmp = a_clean.cmp(&b_clean);
-    if cmp == Ordering::Equal {
-        a.cmp(b)
-    } else {
-        cmp
+/// GNU `ls` orders names with `strcoll`, so the result depends on the locale.
+/// In `C`/`POSIX` that is a plain byte comparison; anywhere else glibc applies
+/// its multi-level collation table.
+#[derive(Clone, Copy, PartialEq)]
+enum Collation {
+    Bytes,
+    Locale,
+}
+
+fn collation() -> Collation {
+    for var in ["LC_ALL", "LC_COLLATE", "LANG"] {
+        match std::env::var(var) {
+            Ok(value) if !value.is_empty() => {
+                let name = value.split('.').next().unwrap_or("");
+                return if name == "C" || name == "POSIX" {
+                    Collation::Bytes
+                } else {
+                    Collation::Locale
+                };
+            }
+            _ => continue,
+        }
     }
+    // No locale in the environment means the C locale.
+    Collation::Bytes
+}
+
+/// Level 1: alphanumerics only, case folded. Punctuation and case are ignored
+/// here and only break ties further down.
+fn collation_base(name: &str) -> Vec<char> {
+    name.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect()
+}
+
+/// Level 3: the case of those same characters, lowercase sorting first.
+fn collation_case(name: &str) -> Vec<u8> {
+    name.chars()
+        .filter(|c| c.is_alphanumeric())
+        .map(|c| if c.is_uppercase() { 1 } else { 0 })
+        .collect()
+}
+
+fn ls_cmp(a: &str, b: &str, collation: Collation) -> Ordering {
+    if collation == Collation::Bytes {
+        return a.as_bytes().cmp(b.as_bytes());
+    }
+
+    collation_base(a).cmp(&collation_base(b))
+        .then_with(|| collation_case(a).cmp(&collation_case(b)))
+        // Level 4: the punctuation that was skipped above.
+        .then_with(|| a.as_bytes().cmp(b.as_bytes()))
 }
 
 pub fn ls(args: &[&str]) {
@@ -240,7 +371,8 @@ pub fn ls(args: &[&str]) {
     }
     
     let ug = UsersGroups::new();
-    
+    let collation = collation();
+
     let mut errs = Vec::new();
     let mut files = Vec::new();
     let mut dirs = Vec::new();
@@ -266,12 +398,12 @@ pub fn ls(args: &[&str]) {
         }
     }
     
-    errs.sort_by(|a, b| a.0.cmp(&b.0));
-    files.sort_by(|a, b| ls_cmp(&a.name, &b.name));
-    dirs.sort();
-    
+    errs.sort_by(|a, b| ls_cmp(&a.0, &b.0, collation));
+    files.sort_by(|a, b| ls_cmp(&a.name, &b.name, collation));
+    dirs.sort_by(|a, b| ls_cmp(a, b, collation));
+
     for (path, err) in &errs {
-        eprintln!("ls: cannot access '{}': {}", path, err);
+        eprintln!("ls: cannot access '{}': {}", path, err_msg(err));
     }
     
     let multiple_targets = paths.len() > 1;
@@ -319,11 +451,11 @@ pub fn ls(args: &[&str]) {
                     }
                 }
                 
-                entries.sort_by(|a, b| ls_cmp(&a.name, &b.name));
+                entries.sort_by(|a, b| ls_cmp(&a.name, &b.name, collation));
                 print_entries(&entries, long_format, classify, &ug, true);
             }
             Err(e) => {
-                eprintln!("ls: cannot open directory '{}': {}", dir, e);
+                eprintln!("ls: cannot open directory '{}': {}", dir, err_msg(&e));
             }
         }
     }
